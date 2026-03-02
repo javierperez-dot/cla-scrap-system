@@ -79,19 +79,25 @@ export default function RegistroNOKPage() {
     }
   }, [cargarDatos]);
 
-  // --- LÓGICA DE ESCANEO OPTIMIZADA PARA VISTA MÓVIL ---
+  // --- LÓGICA DE ESCANEO ESTILO APPSHEET ---
   useEffect(() => {
     let html5QrCode: Html5Qrcode | null = null;
 
     if (campoEscaneo) {
       html5QrCode = new Html5Qrcode("reader");
       
-      // Ajuste de cuadro de escaneo responsivo según el ancho de pantalla
-      const qrBoxSize = window.innerWidth < 600 ? 200 : 250;
+      const config = { 
+        fps: 20, 
+        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+            const size = Math.min(viewfinderWidth, viewfinderHeight) * 0.7;
+            return { width: size, height: size };
+        },
+        aspectRatio: 1.0 
+      };
 
       html5QrCode.start(
         { facingMode: "environment" }, 
-        { fps: 10, qrbox: { width: qrBoxSize, height: qrBoxSize } },
+        config,
         (decodedText) => {
           setFormData(prev => ({ ...prev, [campoEscaneo]: decodedText.toUpperCase() }));
           setCampoEscaneo(null);
@@ -148,29 +154,50 @@ export default function RegistroNOKPage() {
     <div className="min-h-screen bg-[#f8f9fa] font-sans text-gray-800 text-[13px]">
       <Navbar />
 
-      {/* MODAL DEL ESCÁNER ADAPTADO A MÓVIL (Sin scroll lateral) */}
+      {/* MODAL ESCÁNER PANTALLA COMPLETA (ESTILO APPSHEET) */}
       {campoEscaneo && (
-        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-2 sm:p-4">
-          <div className="bg-white p-4 w-full max-w-[95%] sm:max-w-md rounded-lg shadow-2xl overflow-hidden">
-            <h3 className="text-black font-black uppercase text-center mb-4 italic text-sm tracking-tighter">
-              ESCANEANDO {campoEscaneo}
-            </h3>
-            
-            {/* Contenedor con overflow controlado para evitar desplazamiento lateral */}
-            <div id="reader" className="w-full aspect-square bg-gray-100 rounded-md overflow-hidden flex items-center justify-center border border-gray-200"></div>
-            
-            <Button 
-              onClick={() => setCampoEscaneo(null)} 
-              className="w-full mt-6 bg-red-600 hover:bg-red-700 text-white font-black italic h-12"
-            >
-              CANCELAR LECTURA
-            </Button>
+        <div className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-between overflow-hidden">
+          {/* Header */}
+          <div className="w-full p-6 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent z-10">
+             <div className="flex flex-col">
+                <span className="text-white font-black italic text-lg leading-none uppercase tracking-tighter">LECTURA QR / BARRAS</span>
+                <span className="text-[#f29100] text-[10px] font-bold uppercase tracking-widest mt-1">Detección activa: {campoEscaneo}</span>
+             </div>
+             <button onClick={() => setCampoEscaneo(null)} className="bg-white/10 p-2 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+             </button>
+          </div>
+          
+          {/* Cámara */}
+          <div id="reader" className="absolute inset-0 w-full h-full"></div>
+
+          {/* Visor AppSheet */}
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+             <div className="w-[75%] aspect-[3/4] border-2 border-white/30 rounded-3xl relative">
+                {/* Esquinas Naranjas */}
+                <div className="absolute -top-1 -left-1 w-10 h-10 border-t-4 border-l-4 border-[#f29100] rounded-tl-xl"></div>
+                <div className="absolute -top-1 -right-1 w-10 h-10 border-t-4 border-r-4 border-[#f29100] rounded-tr-xl"></div>
+                <div className="absolute -bottom-1 -left-1 w-10 h-10 border-b-4 border-l-4 border-[#f29100] rounded-bl-xl"></div>
+                <div className="absolute -bottom-1 -right-1 w-10 h-10 border-b-4 border-r-4 border-[#f29100] rounded-br-xl"></div>
+                
+                {/* Láser Animado */}
+                <div className="absolute top-0 left-0 w-full h-[3px] bg-[#f29100] shadow-[0_0_20px_#f29100] animate-scan"></div>
+             </div>
+          </div>
+
+          {/* Footer */}
+          <div className="w-full p-10 flex flex-col items-center bg-gradient-to-t from-black/80 to-transparent z-10">
+             <Button 
+                onClick={() => setCampoEscaneo(null)} 
+                className="w-full max-w-xs bg-red-600 text-white font-black italic h-14 rounded-xl border-b-4 border-red-800"
+              >
+                CANCELAR
+              </Button>
           </div>
         </div>
       )}
 
       <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-6 md:space-y-10">
-        {/* CABECERA (Ajustada para móvil) */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 md:p-8 shadow-sm border-l-8 border-red-600 gap-4">
           <div>
             <h2 className="text-[9px] font-black text-red-600 uppercase tracking-[0.4em] mb-2 italic">Terminal de Calidad</h2>
@@ -186,14 +213,13 @@ export default function RegistroNOKPage() {
           </Link>
         </div>
 
-        {/* FORMULARIO (Diseño en stack para móvil) */}
         <div className="bg-white p-6 md:p-8 shadow-xl border-t-4 border-red-600">
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
             <div className="space-y-6">
               <Input label="Nombre de la Pieza" value={formData.nombre_pieza} onChange={(e)=>setFormData({...formData, nombre_pieza: e.target.value})} required />
               <div className="relative">
                 <Input label="Referencia" value={formData.referencia} onChange={(e)=>setFormData({...formData, referencia: e.target.value})} required />
-                <button type="button" onClick={() => setCampoEscaneo('referencia')} className="absolute right-2 top-8 bg-black text-white p-2 rounded hover:bg-red-600">QR</button>
+                <button type="button" onClick={() => setCampoEscaneo('referencia')} className="absolute right-2 top-8 bg-black text-white p-2 rounded hover:bg-red-600 transition-all">QR</button>
               </div>
             </div>
             
@@ -219,7 +245,7 @@ export default function RegistroNOKPage() {
             <div className="space-y-6 flex flex-col justify-between">
               <div className="relative">
                 <Input label="Trazabilidad" value={formData.trazabilidad} onChange={(e)=>setFormData({...formData, trazabilidad: e.target.value})} />
-                <button type="button" onClick={() => setCampoEscaneo('trazabilidad')} className="absolute right-2 top-8 bg-black text-white p-2 rounded hover:bg-[#f29100]">QR</button>
+                <button type="button" onClick={() => setCampoEscaneo('trazabilidad')} className="absolute right-2 top-8 bg-black text-white p-2 rounded hover:bg-[#f29100] transition-all">QR</button>
               </div>
               
               <div className="flex flex-col">
@@ -231,12 +257,11 @@ export default function RegistroNOKPage() {
                 </label>
               </div>
 
-              <Button type="submit" disabled={cargando || !puedeRegistrar} className="h-12">{cargando ? 'PROCESANDO...' : 'REGISTRAR NOK'}</Button>
+              <Button type="submit" disabled={cargando || !puedeRegistrar} className="h-14">{cargando ? 'PROCESANDO...' : 'REGISTRAR NOK'}</Button>
             </div>
           </form>
         </div>
 
-        {/* --- BUSCADOR --- */}
         <div className="bg-white p-5 md:p-6 shadow-sm border-l-8 border-[#f29100] flex items-center gap-4">
           <svg className="w-5 h-5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           <input 
@@ -248,7 +273,6 @@ export default function RegistroNOKPage() {
           />
         </div>
 
-        {/* LOG HISTÓRICO (Scroll lateral solo en tabla para no romper diseño) */}
         <div className="bg-white shadow-xl border-t-4 border-black overflow-hidden">
           <div className="p-4 md:p-6 bg-gray-50 border-b flex justify-between items-center text-xs font-black uppercase text-gray-500 italic">
             Log de Calidad
@@ -278,6 +302,19 @@ export default function RegistroNOKPage() {
           </div>
         </div>
       </div>
+
+      <style jsx global>{`
+        @keyframes scan {
+          0% { top: 0; }
+          100% { top: 100%; }
+        }
+        .animate-scan {
+          animation: scan 2s linear infinite;
+        }
+        #reader video {
+          object-fit: cover !important;
+        }
+      `}</style>
     </div>
   );
 }
