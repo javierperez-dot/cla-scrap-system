@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Navbar } from '@/components/ui/Navbar';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode'; // Cambiado a la clase base para mayor control
 
 // --- Interfaces de Tipado ---
 interface ServicioAutorizado {
@@ -79,27 +79,34 @@ export default function RegistroNOKPage() {
     }
   }, [cargarDatos]);
 
-  // --- LÓGICA DE ESCANEO QR ---
+  // --- LÓGICA DE ESCANEO OPTIMIZADA PARA MÓVIL ---
   useEffect(() => {
+    let html5QrCode: Html5Qrcode | null = null;
+
     if (campoEscaneo) {
-      const scanner = new Html5QrcodeScanner(
-        "reader",
-        { fps: 10, qrbox: { width: 250, height: 250 }, rememberLastUsedCamera: true },
-        false
-      );
+      html5QrCode = new Html5Qrcode("reader");
+      
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-      scanner.render((decodedText) => {
-        setFormData(prev => ({ ...prev, [campoEscaneo]: decodedText.toUpperCase() }));
-        setCampoEscaneo(null);
-        scanner.clear();
-      }, (error) => {
-        // Error de escaneo silencioso
+      // Intentar iniciar la cámara directamente al abrir el modal
+      html5QrCode.start(
+        { facingMode: "environment" }, 
+        config,
+        (decodedText) => {
+          setFormData(prev => ({ ...prev, [campoEscaneo]: decodedText.toUpperCase() }));
+          setCampoEscaneo(null);
+        },
+        undefined
+      ).catch(err => {
+        console.error("Error al iniciar cámara:", err);
       });
-
-      return () => {
-        scanner.clear();
-      };
     }
+
+    return () => {
+      if (html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.stop().catch(err => console.error("Error al detener:", err));
+      }
+    };
   }, [campoEscaneo]);
 
   const registrosFiltrados = registros.filter(r => 
@@ -145,11 +152,24 @@ export default function RegistroNOKPage() {
 
       {/* MODAL DEL ESCÁNER */}
       {campoEscaneo && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4">
-          <div className="bg-white p-4 w-full max-w-md rounded-lg overflow-hidden">
-            <h3 className="text-black font-black uppercase text-center mb-4 italic text-sm">Escaneando {campoEscaneo}...</h3>
-            <div id="reader" className="w-full overflow-hidden rounded-md"></div>
-            <Button onClick={() => setCampoEscaneo(null)} className="w-full mt-4 bg-red-600">CANCELAR LECTURA</Button>
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4">
+          <div className="bg-white p-4 w-full max-w-md rounded-lg shadow-2xl">
+            <h3 className="text-black font-black uppercase text-center mb-4 italic text-sm tracking-tighter">
+              ESCANEANDO {campoEscaneo}
+            </h3>
+            {/* Contenedor del visor de cámara */}
+            <div id="reader" className="w-full aspect-square bg-gray-100 rounded-md overflow-hidden"></div>
+            
+            <p className="text-[10px] text-center text-gray-400 mt-4 uppercase font-bold">
+              Apunta al código QR o de barras
+            </p>
+            
+            <Button 
+              onClick={() => setCampoEscaneo(null)} 
+              className="w-full mt-6 bg-red-600 hover:bg-red-700 text-white font-black italic"
+            >
+              CANCELAR LECTURA
+            </Button>
           </div>
         </div>
       )}
