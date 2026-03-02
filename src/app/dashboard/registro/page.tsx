@@ -6,7 +6,7 @@ import { Navbar } from '@/components/ui/Navbar';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
-import { Html5Qrcode } from 'html5-qrcode'; // Cambiado a la clase base para mayor control
+import { Html5Qrcode } from 'html5-qrcode';
 
 // --- Interfaces de Tipado ---
 interface ServicioAutorizado {
@@ -79,32 +79,30 @@ export default function RegistroNOKPage() {
     }
   }, [cargarDatos]);
 
-  // --- LÓGICA DE ESCANEO OPTIMIZADA PARA MÓVIL ---
+  // --- LÓGICA DE ESCANEO OPTIMIZADA PARA VISTA MÓVIL ---
   useEffect(() => {
     let html5QrCode: Html5Qrcode | null = null;
 
     if (campoEscaneo) {
       html5QrCode = new Html5Qrcode("reader");
       
-      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+      // Ajuste de cuadro de escaneo responsivo según el ancho de pantalla
+      const qrBoxSize = window.innerWidth < 600 ? 200 : 250;
 
-      // Intentar iniciar la cámara directamente al abrir el modal
       html5QrCode.start(
         { facingMode: "environment" }, 
-        config,
+        { fps: 10, qrbox: { width: qrBoxSize, height: qrBoxSize } },
         (decodedText) => {
           setFormData(prev => ({ ...prev, [campoEscaneo]: decodedText.toUpperCase() }));
           setCampoEscaneo(null);
         },
         undefined
-      ).catch(err => {
-        console.error("Error al iniciar cámara:", err);
-      });
+      ).catch(err => console.error("Error cámara:", err));
     }
 
     return () => {
       if (html5QrCode && html5QrCode.isScanning) {
-        html5QrCode.stop().catch(err => console.error("Error al detener:", err));
+        html5QrCode.stop().catch(err => console.error("Error stop:", err));
       }
     };
   }, [campoEscaneo]);
@@ -150,23 +148,20 @@ export default function RegistroNOKPage() {
     <div className="min-h-screen bg-[#f8f9fa] font-sans text-gray-800 text-[13px]">
       <Navbar />
 
-      {/* MODAL DEL ESCÁNER */}
+      {/* MODAL DEL ESCÁNER ADAPTADO A MÓVIL (Sin scroll lateral) */}
       {campoEscaneo && (
-        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4">
-          <div className="bg-white p-4 w-full max-w-md rounded-lg shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-2 sm:p-4">
+          <div className="bg-white p-4 w-full max-w-[95%] sm:max-w-md rounded-lg shadow-2xl overflow-hidden">
             <h3 className="text-black font-black uppercase text-center mb-4 italic text-sm tracking-tighter">
               ESCANEANDO {campoEscaneo}
             </h3>
-            {/* Contenedor del visor de cámara */}
-            <div id="reader" className="w-full aspect-square bg-gray-100 rounded-md overflow-hidden"></div>
             
-            <p className="text-[10px] text-center text-gray-400 mt-4 uppercase font-bold">
-              Apunta al código QR o de barras
-            </p>
+            {/* Contenedor con overflow controlado para evitar desplazamiento lateral */}
+            <div id="reader" className="w-full aspect-square bg-gray-100 rounded-md overflow-hidden flex items-center justify-center border border-gray-200"></div>
             
             <Button 
               onClick={() => setCampoEscaneo(null)} 
-              className="w-full mt-6 bg-red-600 hover:bg-red-700 text-white font-black italic"
+              className="w-full mt-6 bg-red-600 hover:bg-red-700 text-white font-black italic h-12"
             >
               CANCELAR LECTURA
             </Button>
@@ -174,26 +169,26 @@ export default function RegistroNOKPage() {
         </div>
       )}
 
-      <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-10">
-        {/* CABECERA */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-8 shadow-sm border-l-8 border-red-600 gap-4">
+      <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-6 md:space-y-10">
+        {/* CABECERA (Ajustada para móvil) */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 md:p-8 shadow-sm border-l-8 border-red-600 gap-4">
           <div>
-            <h2 className="text-[10px] font-black text-red-600 uppercase tracking-[0.4em] mb-2 italic">Terminal de Calidad</h2>
-            <h1 className="text-3xl font-black italic uppercase tracking-tighter flex items-center gap-3">
+            <h2 className="text-[9px] font-black text-red-600 uppercase tracking-[0.4em] mb-2 italic">Terminal de Calidad</h2>
+            <h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter flex items-center gap-3">
               REGISTRO NOK {esSuperAdmin && <span title="Superadmin">👑</span>}
             </h1>
             <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">
               Operario: <span className="text-black">{usuarioLogueado?.nombre}</span>
             </p>
           </div>
-          <Link href="/dashboard" className="bg-black text-white px-6 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-all italic">
-            ← VOLVER A DASHBOARD
+          <Link href="/dashboard" className="w-full md:w-auto bg-black text-white text-center px-6 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-all italic">
+            ← VOLVER
           </Link>
         </div>
 
-        {/* FORMULARIO DE REGISTRO */}
-        <div className="bg-white p-8 shadow-xl border-t-4 border-red-600">
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* FORMULARIO (Diseño en stack para móvil) */}
+        <div className="bg-white p-6 md:p-8 shadow-xl border-t-4 border-red-600">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
             <div className="space-y-6">
               <Input label="Nombre de la Pieza" value={formData.nombre_pieza} onChange={(e)=>setFormData({...formData, nombre_pieza: e.target.value})} required />
               <div className="relative">
@@ -236,44 +231,44 @@ export default function RegistroNOKPage() {
                 </label>
               </div>
 
-              <Button type="submit" disabled={cargando || !puedeRegistrar}>{cargando ? 'PROCESANDO...' : 'REGISTRAR NOK'}</Button>
+              <Button type="submit" disabled={cargando || !puedeRegistrar} className="h-12">{cargando ? 'PROCESANDO...' : 'REGISTRAR NOK'}</Button>
             </div>
           </form>
         </div>
 
-        {/* --- BLOQUE DE BUSQUEDA --- */}
-        <div className="bg-white p-6 shadow-sm border-l-8 border-[#f29100] flex items-center gap-4">
-          <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        {/* --- BUSCADOR --- */}
+        <div className="bg-white p-5 md:p-6 shadow-sm border-l-8 border-[#f29100] flex items-center gap-4">
+          <svg className="w-5 h-5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           <input 
             type="text" 
-            placeholder="FILTRAR POR PIEZA, REFERENCIA O CLIENTE..." 
+            placeholder="FILTRAR REGISTROS..." 
             className="w-full bg-transparent outline-none font-black uppercase tracking-widest text-[11px] text-gray-400 placeholder:text-gray-200"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
           />
         </div>
 
-        {/* LOG HISTÓRICO FILTRADO */}
-        <div className="bg-white shadow-xl border-t-4 border-black">
-          <div className="p-6 bg-gray-50 border-b flex justify-between items-center text-xs font-black uppercase text-gray-500 italic">
-            Log de Calidad {esSuperAdmin ? "(Vista Total)" : "(Filtrado)"}
-            <span className="text-[10px] not-italic text-gray-400">Items: {registrosFiltrados.length}</span>
+        {/* LOG HISTÓRICO (Scroll lateral solo en tabla para no romper diseño) */}
+        <div className="bg-white shadow-xl border-t-4 border-black overflow-hidden">
+          <div className="p-4 md:p-6 bg-gray-50 border-b flex justify-between items-center text-xs font-black uppercase text-gray-500 italic">
+            Log de Calidad
+            <span className="text-[10px] not-italic text-gray-400">Total: {registrosFiltrados.length}</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left min-w-[500px]">
               <thead>
                 <tr className="text-[10px] text-gray-400 uppercase border-b font-black bg-white">
-                  <th className="p-5">Pieza / Ref</th>
-                  <th className="p-5">Cliente</th>
-                  <th className="p-5 text-right">Fecha / Hora</th>
+                  <th className="p-4">Pieza / Ref</th>
+                  <th className="p-4">Cliente</th>
+                  <th className="p-4 text-right">Fecha</th>
                 </tr>
               </thead>
               <tbody>
                 {registrosFiltrados.map(r => (
                   <tr key={r.id} className="border-b hover:bg-red-50/10 group">
-                    <td className="p-5 font-black uppercase italic leading-tight">{r.nombre_pieza} <br/><span className="text-[9px] font-mono text-gray-400 font-normal">{r.referencia}</span></td>
-                    <td className="p-5 uppercase text-[10px] font-bold text-red-600">{r.clientes?.nombre_empresa}</td>
-                    <td className="p-5 text-right font-mono text-[10px]">
+                    <td className="p-4 font-black uppercase italic leading-tight">{r.nombre_pieza} <br/><span className="text-[9px] font-mono text-gray-400 font-normal">{r.referencia}</span></td>
+                    <td className="p-4 uppercase text-[10px] font-bold text-red-600">{r.clientes?.nombre_empresa}</td>
+                    <td className="p-4 text-right font-mono text-[10px]">
                       <span className="text-black font-bold">{new Date(r.fecha).toLocaleDateString()}</span>
                     </td>
                   </tr>
