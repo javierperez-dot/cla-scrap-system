@@ -79,6 +79,29 @@ export default function RegistroNOKPage() {
     }
   }, [cargarDatos]);
 
+  // --- LÓGICA DE ESCANEO QR ---
+  useEffect(() => {
+    if (campoEscaneo) {
+      const scanner = new Html5QrcodeScanner(
+        "reader",
+        { fps: 10, qrbox: { width: 250, height: 250 }, rememberLastUsedCamera: true },
+        false
+      );
+
+      scanner.render((decodedText) => {
+        setFormData(prev => ({ ...prev, [campoEscaneo]: decodedText.toUpperCase() }));
+        setCampoEscaneo(null);
+        scanner.clear();
+      }, (error) => {
+        // Error de escaneo silencioso
+      });
+
+      return () => {
+        scanner.clear();
+      };
+    }
+  }, [campoEscaneo]);
+
   const registrosFiltrados = registros.filter(r => 
     r.nombre_pieza.toLowerCase().includes(busqueda.toLowerCase()) ||
     r.referencia.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -119,6 +142,17 @@ export default function RegistroNOKPage() {
   return (
     <div className="min-h-screen bg-[#f8f9fa] font-sans text-gray-800 text-[13px]">
       <Navbar />
+
+      {/* MODAL DEL ESCÁNER */}
+      {campoEscaneo && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4">
+          <div className="bg-white p-4 w-full max-w-md rounded-lg overflow-hidden">
+            <h3 className="text-black font-black uppercase text-center mb-4 italic text-sm">Escaneando {campoEscaneo}...</h3>
+            <div id="reader" className="w-full overflow-hidden rounded-md"></div>
+            <Button onClick={() => setCampoEscaneo(null)} className="w-full mt-4 bg-red-600">CANCELAR LECTURA</Button>
+          </div>
+        </div>
+      )}
 
       <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-10">
         {/* CABECERA */}
@@ -173,7 +207,6 @@ export default function RegistroNOKPage() {
                 <button type="button" onClick={() => setCampoEscaneo('trazabilidad')} className="absolute right-2 top-8 bg-black text-white p-2 rounded hover:bg-[#f29100]">QR</button>
               </div>
               
-              {/* CAMPO DE FOTO REDISEÑADO PARA MÓVIL */}
               <div className="flex flex-col">
                 <label className="text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">Evidencia Fotográfica</label>
                 <label className={`flex items-center justify-center gap-2 p-3 border-2 border-dashed cursor-pointer transition-all ${fotoArchivo ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-gray-400 hover:border-red-600'}`}>
@@ -188,7 +221,7 @@ export default function RegistroNOKPage() {
           </form>
         </div>
 
-        {/* --- BLOQUE DE BUSQUEDA (Naranja) --- */}
+        {/* --- BLOQUE DE BUSQUEDA --- */}
         <div className="bg-white p-6 shadow-sm border-l-8 border-[#f29100] flex items-center gap-4">
           <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           <input 
