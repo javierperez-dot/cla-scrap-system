@@ -1,37 +1,70 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
+import Link from 'next/link'; // Importación correcta
 import { useRouter } from 'next/navigation';
 import { Navbar } from '@/components/ui/Navbar';
+import { supabase } from '@/lib/supabase';
 
 export default function DashboardPage() {
   const [usuario, setUsuario] = useState<any>(null);
+  const [accesoModuloCentros, setAccesoModuloCentros] = useState<boolean | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     const datosGuardados = localStorage.getItem('usuario_scrap');
     if (datosGuardados) {
-      setUsuario(JSON.parse(datosGuardados));
+      const user = JSON.parse(datosGuardados);
+      setUsuario(user);
+      verificarAccesoGlobal(user.id, user.email);
     } else {
       router.push('/login');
     }
   }, [router]);
 
-  if (!usuario) return <div className="p-10 font-black uppercase italic animate-pulse text-gray-400">Sincronizando sistema...</div>;
+  const verificarAccesoGlobal = async (userId: string, email: string) => {
+    // 1. Superadmin siempre tiene acceso total
+    if (email === 'javier.perez@randstad.es') {
+      setAccesoModuloCentros(true);
+      return;
+    }
+
+    try {
+      // 2. CONSULTA MAESTRA: Miramos la columna 'tiene_acceso_centros' de la tabla 'usuarios'
+      // Esta es la columna que en tu captura de HUAN CARLOS sale como FALSE
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('tiene_acceso_centros')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+
+      // Si la columna es FALSE en la tabla usuarios, la tarjeta SE OCULTA
+      setAccesoModuloCentros(data?.tiene_acceso_centros === true);
+      
+    } catch (err) {
+      console.error("Error validando acceso global:", err);
+      setAccesoModuloCentros(false);
+    }
+  };
+
+  if (!usuario || accesoModuloCentros === null) return (
+    <div className="min-h-screen bg-[#f0f2f5] flex items-center justify-center font-black uppercase italic animate-pulse text-gray-400">
+      Sincronizando seguridad...
+    </div>
+  );
 
   const esAdmin = usuario.rol === 'Administrador';
 
   return (
     <div className="min-h-screen bg-[#f0f2f5] font-sans">
-      
-      {/* NAVBAR SUPERIOR */}
       <Navbar />
 
       <div className="p-8 max-w-5xl mx-auto">
         
-        {/* REJILLA DE TARJETAS (Ahora con margen superior corregido al quitar la cabecera) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-10">
+        {/* REJILLA DINÁMICA */}
+        <div className={`grid grid-cols-1 ${esAdmin && accesoModuloCentros ? 'md:grid-cols-2' : 'md:grid-cols-1'} gap-8 mt-10`}>
           
           {/* TARJETA 1: ADMIN */}
           {esAdmin && (
@@ -51,21 +84,23 @@ export default function DashboardPage() {
             </Link>
           )}
 
-          {/* TARJETA 2: REGISTRO NOK */}
-          <Link href="/dashboard/registro" className="group">
-            <div className="bg-white p-10 border-b-4 border-black hover:border-red-600 transition-all shadow-sm h-full flex flex-col justify-between border-t border-x border-gray-100">
-              <div>
-                <div className="flex justify-between items-start mb-8">
-                  <div className="bg-gray-100 p-4 group-hover:bg-red-600 group-hover:text-white transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          {/* TARJETA 2: REGISTRO NOK - Bloqueada por la columna 'tiene_acceso_centros' */}
+          {accesoModuloCentros && (
+            <Link href="/dashboard/registro" className="group">
+              <div className="bg-white p-10 border-b-4 border-black hover:border-red-600 transition-all shadow-sm h-full flex flex-col justify-between border-t border-x border-gray-100">
+                <div>
+                  <div className="flex justify-between items-start mb-8">
+                    <div className="bg-gray-100 p-4 group-hover:bg-red-600 group-hover:text-white transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                    </div>
+                    <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest border border-gray-200 px-2 py-1">Operativa</span>
                   </div>
-                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest border border-gray-200 px-2 py-1">Operativa</span>
+                  <h3 className="text-2xl font-black uppercase italic mb-3 tracking-tighter text-gray-900 group-hover:text-red-600 transition-colors">Registro Pieza NOK</h3>
+                  <p className="text-sm text-gray-400 leading-relaxed font-bold uppercase opacity-80">Reporte de incidencias y avisos de calidad en tiempo real.</p>
                 </div>
-                <h3 className="text-2xl font-black uppercase italic mb-3 tracking-tighter text-gray-900 group-hover:text-red-600 transition-colors">Registro Pieza NOK</h3>
-                <p className="text-sm text-gray-400 leading-relaxed font-bold uppercase opacity-80">Reporte de incidencias y avisos de calidad en tiempo real.</p>
               </div>
-            </div>
-          </Link>
+            </Link>
+          )}
 
         </div>
 
