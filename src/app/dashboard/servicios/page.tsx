@@ -21,13 +21,33 @@ export default function ServiciosPage() {
   const [cargando, setCargando] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
+  // CARGA DE SERVICIOS PROTEGIDA
   const cargarServicios = async () => {
-    const { data, error } = await supabase
-      .from('servicios')
-      .select('*')
-      .order('nombre_servicio', { ascending: true });
-    
-    if (!error) setServicios(data || []);
+    try {
+      // 1. Obtenemos el usuario del localStorage para verificar rol
+      const userStr = localStorage.getItem('usuario_scrap');
+      if (!userStr) return;
+      const user = JSON.parse(userStr);
+
+      let query = supabase.from('servicios').select('*').order('nombre_servicio', { ascending: true });
+
+      // 2. Aplicamos filtro si no es Admin o Superadmin
+      if (user.rol !== 'Administrador' && user.email !== 'javier.perez@randstad.es') {
+        const { data: asignaciones } = await supabase
+          .from('usuario_servicios')
+          .select('servicio_id')
+          .eq('usuario_id', user.id)
+          .eq('is_supervisor', true);
+
+        const idsAutorizados = asignaciones?.map(a => a.servicio_id) || [];
+        query = query.in('id', idsAutorizados);
+      }
+
+      const { data, error } = await query;
+      if (!error) setServicios(data || []);
+    } catch (err) {
+      console.error("Error cargando servicios protegidos");
+    }
   };
 
   useEffect(() => {
@@ -104,6 +124,7 @@ export default function ServiciosPage() {
           </Link>
         </div>
 
+        {/* FORMULARIO DE ALTA/EDICIÓN */}
         <div className="bg-white p-8 shadow-xl border-t-4 border-black text-left">
           <h2 className="text-xs font-black uppercase mb-8 tracking-[0.2em] border-b pb-4 text-gray-400 italic">
             {editando ? 'Modificar Registro' : 'Alta de Nuevo Centro Operativo'}
@@ -150,6 +171,7 @@ export default function ServiciosPage() {
           </form>
         </div>
 
+        {/* FILTRO DE BÚSQUEDA */}
         <div className="bg-white p-4 shadow-lg border-l-4 border-[#f29100] flex items-center gap-4">
           <div className="text-gray-400 font-bold">🔍</div>
           <input 
@@ -161,6 +183,7 @@ export default function ServiciosPage() {
           />
         </div>
 
+        {/* TABLA DE RESULTADOS */}
         <div className="bg-white shadow-xl border-t-4 border-[#f29100]">
           <div className="overflow-x-auto">
             <table className="w-full text-left">

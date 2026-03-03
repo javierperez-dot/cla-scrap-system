@@ -157,7 +157,6 @@ export default function RegistroNOKPage() {
       {/* MODAL ESCÁNER PANTALLA COMPLETA (ESTILO APPSHEET) */}
       {campoEscaneo && (
         <div className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-between overflow-hidden">
-          {/* Header */}
           <div className="w-full p-6 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent z-10">
              <div className="flex flex-col">
                 <span className="text-white font-black italic text-lg leading-none uppercase tracking-tighter">LECTURA QR / BARRAS</span>
@@ -168,31 +167,25 @@ export default function RegistroNOKPage() {
              </button>
           </div>
           
-          {/* Cámara */}
           <div id="reader" className="absolute inset-0 w-full h-full"></div>
 
-          {/* Visor AppSheet */}
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
              <div className="w-[75%] aspect-[3/4] border-2 border-white/30 rounded-3xl relative">
-                {/* Esquinas Naranjas */}
                 <div className="absolute -top-1 -left-1 w-10 h-10 border-t-4 border-l-4 border-[#f29100] rounded-tl-xl"></div>
                 <div className="absolute -top-1 -right-1 w-10 h-10 border-t-4 border-r-4 border-[#f29100] rounded-tr-xl"></div>
                 <div className="absolute -bottom-1 -left-1 w-10 h-10 border-b-4 border-l-4 border-[#f29100] rounded-bl-xl"></div>
                 <div className="absolute -bottom-1 -right-1 w-10 h-10 border-b-4 border-r-4 border-[#f29100] rounded-br-xl"></div>
-                
-                {/* Láser Animado */}
                 <div className="absolute top-0 left-0 w-full h-[3px] bg-[#f29100] shadow-[0_0_20px_#f29100] animate-scan"></div>
              </div>
           </div>
 
-          {/* Footer */}
           <div className="w-full p-10 flex flex-col items-center bg-gradient-to-t from-black/80 to-transparent z-10">
              <Button 
                 onClick={() => setCampoEscaneo(null)} 
                 className="w-full max-w-xs bg-red-600 text-white font-black italic h-14 rounded-xl border-b-4 border-red-800"
-              >
+             >
                 CANCELAR
-              </Button>
+             </Button>
           </div>
         </div>
       )}
@@ -284,6 +277,8 @@ export default function RegistroNOKPage() {
                 <tr className="text-[10px] text-gray-400 uppercase border-b font-black bg-white">
                   <th className="p-4">Pieza / Ref</th>
                   <th className="p-4">Cliente</th>
+                  {/* NUEVA COLUMNA DE EVIDENCIA */}
+                  <th className="p-4 text-center">Evidencia</th>
                   <th className="p-4 text-right">Fecha</th>
                 </tr>
               </thead>
@@ -292,6 +287,28 @@ export default function RegistroNOKPage() {
                   <tr key={r.id} className="border-b hover:bg-red-50/10 group">
                     <td className="p-4 font-black uppercase italic leading-tight">{r.nombre_pieza} <br/><span className="text-[9px] font-mono text-gray-400 font-normal">{r.referencia}</span></td>
                     <td className="p-4 uppercase text-[10px] font-bold text-red-600">{r.clientes?.nombre_empresa}</td>
+                    
+                    {/* CELDA DE FOTO */}
+                    <td className="p-4 text-center">
+                      {r.foto_url ? (
+                        <a 
+                          href={r.foto_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-block"
+                        >
+                          <div className="w-10 h-10 border-2 border-black bg-gray-200 overflow-hidden hover:border-[#f29100] transition-all relative group/img">
+                            <img src={r.foto_url} className="w-full h-full object-cover" alt="NOK" />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity">
+                               <span className="text-[8px] text-white font-black">VER</span>
+                            </div>
+                          </div>
+                        </a>
+                      ) : (
+                        <span className="text-[8px] font-bold text-gray-300 italic">SIN FOTO</span>
+                      )}
+                    </td>
+
                     <td className="p-4 text-right font-mono text-[10px]">
                       <span className="text-black font-bold">{new Date(r.fecha).toLocaleDateString()}</span>
                     </td>

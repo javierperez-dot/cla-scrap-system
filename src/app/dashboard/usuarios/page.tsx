@@ -23,21 +23,38 @@ export default function UsuariosPage() {
   const [busqueda, setBusqueda] = useState('');
   const [usuarioActual, setUsuarioActual] = useState<any>(null);
 
-  // EMAIL DEL SUPERADMIN (TÚ)
   const SUPERADMIN_EMAIL = 'javier.perez@randstad.es';
 
+  // Lógica de filtrado según jerarquía
   const cargarUsuarios = async (termino = '') => {
+    const userStr = localStorage.getItem('usuario_scrap');
+    const me = userStr ? JSON.parse(userStr) : null;
+    
     let query = supabase.from('usuarios').select('*').order('nombre');
+    
+    // Si es Supervisor, solo permitimos ver Operarios
+    if (me && me.rol === 'Supervisor' && me.email !== SUPERADMIN_EMAIL) {
+      query = query.eq('rol', 'Operario');
+    }
+
     if (termino) {
       query = query.or(`nombre.ilike.%${termino}%,dni.ilike.%${termino}%,email.ilike.%${termino}%`);
     }
+
     const { data } = await query;
     setUsuarios(data || []);
   };
 
   useEffect(() => { 
     const userStr = localStorage.getItem('usuario_scrap');
-    if (userStr) setUsuarioActual(JSON.parse(userStr));
+    if (userStr) {
+      const parsed = JSON.parse(userStr);
+      setUsuarioActual(parsed);
+      // Si soy supervisor, el rol por defecto de creación siempre es Operario
+      if (parsed.rol === 'Supervisor') {
+        setFormData(prev => ({ ...prev, rol: 'Operario' }));
+      }
+    }
     cargarUsuarios(busqueda); 
   }, [busqueda]);
 
@@ -54,7 +71,7 @@ export default function UsuariosPage() {
       dni: formData.dni.toUpperCase().trim(),
       email: formData.email.toLowerCase().trim(),
       password: formData.password,
-      rol: formData.rol 
+      rol: usuarioActual?.rol === 'Supervisor' ? 'Operario' : formData.rol 
     };
 
     try {
@@ -83,13 +100,14 @@ export default function UsuariosPage() {
     }
   };
 
+  const soyAdminTotal = usuarioActual?.rol === 'Administrador' || usuarioActual?.email === SUPERADMIN_EMAIL;
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] font-sans text-gray-800 text-[13px]">
       <Navbar />
 
       <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-6">
         
-        {/* CABECERA */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-8 shadow-sm border-l-8 border-black gap-4">
           <div>
             <h2 className="text-[10px] font-black text-[#f29100] uppercase tracking-[0.4em] mb-2 italic">Seguridad y Accesos</h2>
@@ -100,10 +118,9 @@ export default function UsuariosPage() {
           </Link>
         </div>
 
-        {/* FORMULARIO DE ALTA */}
         <div className="bg-white p-8 shadow-xl border-t-4 border-black">
           <h2 className="text-xs font-black uppercase mb-8 tracking-[0.2em] border-b pb-4 text-gray-400 italic">
-            Alta de Nuevo Operario (Configuración Inicial)
+            Alta de Nuevo Personal (Configuración Inicial)
           </h2>
           
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -117,16 +134,24 @@ export default function UsuariosPage() {
             </div>
             <div className="space-y-6 flex flex-col justify-between">
               <div className="flex flex-col">
-                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-widest">Nivel de Acceso</label>
+                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-widest italic text-zinc-500">Nivel de Acceso Global</label>
+                {/* Selector protegido: El supervisor NO puede elegir rol */}
                 <select 
                   name="rol" 
                   value={formData.rol} 
-                  onChange={handleChange} 
-                  className="bg-gray-100 p-3 text-sm font-bold border-b-2 border-transparent focus:border-[#f29100] h-[46px] outline-none uppercase appearance-none cursor-pointer text-gray-800"
+                  onChange={handleChange}
+                  disabled={!soyAdminTotal}
+                  className={`bg-gray-100 p-3 text-sm font-bold border-b-2 border-transparent focus:border-[#f29100] h-[46px] outline-none uppercase appearance-none text-gray-800 ${!soyAdminTotal ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                 >
                   <option value="Operario">Operario</option>
-                  <option value="Administrador">Administrador</option>
+                  {soyAdminTotal && (
+                    <>
+                      <option value="Supervisor">Supervisor (Bloque)</option>
+                      <option value="Administrador">Administrador (Total)</option>
+                    </>
+                  )}
                 </select>
+                {!soyAdminTotal && <p className="text-[8px] font-bold text-red-500 uppercase mt-1 italic">Solo puedes crear Operarios</p>}
               </div>
               <Button type="submit" disabled={cargando}>
                 {cargando ? 'PROCESANDO...' : 'Sincronizar Usuario'}
@@ -135,7 +160,6 @@ export default function UsuariosPage() {
           </form>
         </div>
 
-        {/* BUSCADOR */}
         <div className="bg-white p-4 shadow-lg border-l-4 border-[#f29100] flex items-center gap-4">
           <div className="bg-gray-100 p-2 rounded text-xs">🔍</div>
           <input 
@@ -147,7 +171,6 @@ export default function UsuariosPage() {
           />
         </div>
 
-        {/* TABLA DE PERSONAL BLINDADA */}
         <div className="bg-white shadow-xl border-t-4 border-[#f29100]">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -163,8 +186,8 @@ export default function UsuariosPage() {
                 {usuarios.length > 0 ? (
                   usuarios.map((u) => {
                     const esSuperadmin = u.email === SUPERADMIN_EMAIL;
-                    const soyYo = usuarioActual?.email === SUPERADMIN_EMAIL;
-                    const bloquearGestion = esSuperadmin && !soyYo;
+                    const soyYoRoot = usuarioActual?.email === SUPERADMIN_EMAIL;
+                    const bloquearGestion = esSuperadmin && !soyYoRoot;
 
                     return (
                       <tr key={u.id} className="border-b hover:bg-gray-50 transition-colors group">
@@ -172,7 +195,12 @@ export default function UsuariosPage() {
                           <p className="font-black italic uppercase text-gray-900 group-hover:text-[#f29100] transition-colors">
                             {u.nombre} {esSuperadmin && <span title="Master Root">👑</span>}
                           </p>
-                          <p className="text-[10px] text-gray-400 font-mono uppercase">{u.dni}</p>
+                          <div className="flex gap-2 items-center mt-1">
+                            <p className="text-[10px] text-gray-400 font-mono uppercase">{u.dni}</p>
+                            <span className={`text-[8px] font-black px-2 py-0.5 uppercase italic ${u.rol === 'Supervisor' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                              {u.rol}
+                            </span>
+                          </div>
                         </td>
                         <td className="p-5 text-gray-500 font-mono lowercase">{u.email}</td>
                         <td className="p-5 text-center">
@@ -210,7 +238,7 @@ export default function UsuariosPage() {
                     );
                   })
                 ) : (
-                  <tr><td colSpan={4} className="p-10 text-center text-gray-300 italic font-black uppercase text-xs">Sin registros</td></tr>
+                  <tr><td colSpan={4} className="p-10 text-center text-gray-300 italic font-black uppercase text-xs">Sin registros visibles</td></tr>
                 )}
               </tbody>
             </table>
