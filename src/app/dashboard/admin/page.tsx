@@ -33,7 +33,8 @@ export default function AdminHub() {
   };
 
   const esSuperadmin = usuarioLogueado?.email === 'javier.perez@randstad.es';
-  const esAdminTotal = usuarioLogueado?.rol === 'Administrador' || esSuperadmin;
+  // AJUSTE: El rol "Maestro" ahora también desbloquea todo el panel
+  const esAdminTotal = usuarioLogueado?.rol === 'Administrador' || usuarioLogueado?.rol === 'Maestro' || esSuperadmin;
   const esSupervisor = usuarioLogueado?.rol === 'Supervisor' || tienePermisoCentro;
 
   return (
@@ -87,7 +88,7 @@ export default function AdminHub() {
             </div>
           )}
 
-          {/* MÓDULO 02: SERVICIOS - RESTRINGIDO PARA SUPERVISORES */}
+          {/* MÓDULO 02: SERVICIOS */}
           {esAdminTotal ? (
             <Link href="/dashboard/servicios" className="group">
               <div className="bg-white p-10 border-l-8 border-[#f29100] shadow-sm hover:shadow-2xl transition-all h-full flex flex-col justify-between">
@@ -113,7 +114,7 @@ export default function AdminHub() {
             </div>
           )}
 
-          {/* MÓDULO 03: CLIENTES - RESTRINGIDO PARA SUPERVISORES */}
+          {/* MÓDULO 03: CLIENTES */}
           {esAdminTotal ? (
             <Link href="/dashboard/clientes" className="group">
               <div className="bg-white p-10 border-l-8 border-black shadow-sm hover:shadow-2xl transition-all h-full flex flex-col justify-between">
