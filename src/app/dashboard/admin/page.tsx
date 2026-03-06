@@ -57,7 +57,7 @@ export default function AdminHub() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           
-          {/* MÓDULO 01: PERSONAL - Desbloqueado para Admin y Supervisor */}
+          {/* MÓDULO 01: PERSONAL */}
           {(esAdminTotal || esSupervisor) ? (
             <Link href="/dashboard/usuarios" className="group">
               <div className="bg-white p-10 border-l-8 border-black shadow-sm hover:shadow-2xl transition-all h-full flex flex-col justify-between">
@@ -87,35 +87,57 @@ export default function AdminHub() {
             </div>
           )}
 
-          {/* MÓDULO 02: CLIENTES */}
-          <Link href="/dashboard/clientes" className="group">
-            <div className="bg-white p-10 border-l-8 border-black shadow-sm hover:shadow-2xl transition-all h-full flex flex-col justify-between">
-              <div>
-                <h3 className="text-sm font-black text-gray-200 uppercase mb-4 tracking-widest">Módulo 02</h3>
-                <h2 className="text-2xl font-black italic uppercase group-hover:text-[#f29100] transition-colors leading-tight">Gestión de Clientes</h2>
-                <div className="h-1 w-12 bg-black mt-4 group-hover:w-24 transition-all"></div>
-                <p className="text-[11px] text-gray-500 mt-6 leading-relaxed font-bold uppercase tracking-tighter opacity-70">
-                  Base de datos de receptores y configuración de envíos de alertas de calidad.
-                </p>
+          {/* MÓDULO 02: SERVICIOS - RESTRINGIDO PARA SUPERVISORES */}
+          {esAdminTotal ? (
+            <Link href="/dashboard/servicios" className="group">
+              <div className="bg-white p-10 border-l-8 border-[#f29100] shadow-sm hover:shadow-2xl transition-all h-full flex flex-col justify-between">
+                <div>
+                  <h3 className="text-sm font-black text-[#f29100] uppercase mb-4 tracking-widest opacity-30">Módulo 02</h3>
+                  <h2 className="text-2xl font-black italic uppercase text-[#f29100]">Gestión de Servicios</h2>
+                  <div className="h-1 w-12 bg-[#f29100] mt-4 group-hover:w-24 transition-all"></div>
+                  <p className="text-[11px] text-gray-500 mt-6 leading-relaxed font-bold uppercase tracking-tighter opacity-70">
+                    Definición de departamentos técnicos, sedes y jefes de servicio por área.
+                  </p>
+                </div>
+                <span className="text-[10px] font-black text-gray-300 mt-8 group-hover:text-[#f29100] uppercase">EDITAR ESTRUCTURA →</span>
               </div>
-              <span className="text-[10px] font-black text-gray-300 mt-8 group-hover:text-black uppercase">GESTIONAR CARTERA →</span>
+            </Link>
+          ) : (
+            <div className="bg-gray-50 p-10 border-l-8 border-gray-200 opacity-50 cursor-not-allowed h-full flex flex-col justify-between">
+              <div>
+                <h3 className="text-sm font-black text-gray-300 uppercase mb-4 tracking-widest">Módulo 02</h3>
+                <h2 className="text-2xl font-black italic uppercase text-gray-400 leading-tight">Gestión de Servicios</h2>
+                <p className="text-[10px] text-red-500 mt-6 font-black uppercase tracking-widest">Acceso restringido a Administradores</p>
+              </div>
+              <span className="text-[9px] font-black text-gray-300 mt-8 uppercase italic underline decoration-red-500">Bloqueo de Seguridad</span>
             </div>
-          </Link>
+          )}
 
-          {/* MÓDULO 03: SERVICIOS */}
-          <Link href="/dashboard/servicios" className="group">
-            <div className="bg-white p-10 border-l-8 border-[#f29100] shadow-sm hover:shadow-2xl transition-all h-full flex flex-col justify-between">
-              <div>
-                <h3 className="text-sm font-black text-[#f29100] uppercase mb-4 tracking-widest opacity-30">Módulo 03</h3>
-                <h2 className="text-2xl font-black italic uppercase text-[#f29100]">Gestión de Servicios</h2>
-                <div className="h-1 w-12 bg-[#f29100] mt-4 group-hover:w-24 transition-all"></div>
-                <p className="text-[11px] text-gray-500 mt-6 leading-relaxed font-bold uppercase tracking-tighter opacity-70">
-                  Definición de departamentos técnicos, sedes y jefes de servicio por área.
-                </p>
+          {/* MÓDULO 03: CLIENTES - RESTRINGIDO PARA SUPERVISORES */}
+          {esAdminTotal ? (
+            <Link href="/dashboard/clientes" className="group">
+              <div className="bg-white p-10 border-l-8 border-black shadow-sm hover:shadow-2xl transition-all h-full flex flex-col justify-between">
+                <div>
+                  <h3 className="text-sm font-black text-gray-200 uppercase mb-4 tracking-widest">Módulo 03</h3>
+                  <h2 className="text-2xl font-black italic uppercase group-hover:text-[#f29100] transition-colors leading-tight">Gestión de Clientes</h2>
+                  <div className="h-1 w-12 bg-black mt-4 group-hover:w-24 transition-all"></div>
+                  <p className="text-[11px] text-gray-500 mt-6 leading-relaxed font-bold uppercase tracking-tighter opacity-70">
+                    Base de datos de receptores y configuración de envíos de alertas de calidad.
+                  </p>
+                </div>
+                <span className="text-[10px] font-black text-gray-300 mt-8 group-hover:text-black uppercase">GESTIONAR CARTERA →</span>
               </div>
-              <span className="text-[10px] font-black text-gray-300 mt-8 group-hover:text-[#f29100] uppercase">EDITAR ESTRUCTURA →</span>
+            </Link>
+          ) : (
+            <div className="bg-gray-50 p-10 border-l-8 border-gray-200 opacity-50 cursor-not-allowed h-full flex flex-col justify-between">
+              <div>
+                <h3 className="text-sm font-black text-gray-300 uppercase mb-4 tracking-widest">Módulo 03</h3>
+                <h2 className="text-2xl font-black italic uppercase text-gray-400 leading-tight">Gestión de Clientes</h2>
+                <p className="text-[10px] text-red-500 mt-6 font-black uppercase tracking-widest">Acceso restringido a Administradores</p>
+              </div>
+              <span className="text-[9px] font-black text-gray-300 mt-8 uppercase italic underline decoration-red-500">Bloqueo de Seguridad</span>
             </div>
-          </Link>
+          )}
 
         </div>
 

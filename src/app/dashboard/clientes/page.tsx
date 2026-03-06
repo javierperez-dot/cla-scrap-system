@@ -12,32 +12,39 @@ export default function ClientesPage() {
     id: '', 
     nombre_empresa: '', 
     contacto_nombre: '', 
-    email_notificacion: '', // Este será el contacto principal (PARA:)
-    emails_cc: '',          // NUEVO: Contactos en copia (CC:)
+    email_notificacion: '', 
+    emails_cc: '', 
     telefono: '',
-    servicio_id: '' 
+    servicio_id: '',
+    usuario_acceso_id: '',
+    tipo_acceso: 'SOLO EMAIL' // Valor por defecto solicitado
   });
   const [clientes, setClientes] = useState<any[]>([]);
   const [servicios, setServicios] = useState<any[]>([]);
+  const [usuariosCliente, setUsuariosCliente] = useState<any[]>([]);
   const [editando, setEditando] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
   const cargarDatos = async (termino = '') => {
+    // Carga de servicios
     const { data: servs } = await supabase.from('servicios').select('id, nombre_servicio').order('nombre_servicio');
     setServicios(servs || []);
 
-    let query = supabase.from('clientes').select('*, servicios!left(nombre_servicio)').order('nombre_empresa');
+    // Carga de usuarios con rol 'Cliente'
+    const { data: users } = await supabase.from('usuarios').select('id, nombre, email').eq('rol', 'Cliente').order('nombre');
+    setUsuariosCliente(users || []);
+
+    // Carga de clientes con sus relaciones
+    let query = supabase.from('clientes').select('*, servicios!left(nombre_servicio), usuarios!left(nombre)').order('nombre_empresa');
     if (termino) {
-      query = query.or(`nombre_empresa.ilike.%${termino}%,contacto_nombre.ilike.%${termino}%,email_notificacion.ilike.%${termino}%`);
+      query = query.or(`nombre_empresa.ilike.%${termino}%,contacto_nombre.ilike.%${termino}%`);
     }
     const { data } = await query;
     setClientes(data || []);
   };
 
-  useEffect(() => { 
-    cargarDatos(busqueda); 
-  }, [busqueda]);
+  useEffect(() => { cargarDatos(busqueda); }, [busqueda]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -45,35 +52,32 @@ export default function ClientesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.servicio_id) return alert("ATENCIÓN: Debe asignar un servicio al cliente.");
+    if (!formData.servicio_id) return alert("ATENCIÓN: Debe asignar un servicio.");
     
-    setCargando(true);
+    // Validación de seguridad para accesos con panel
+    if ((formData.tipo_acceso === 'ACCESO A PANEL' || formData.tipo_acceso === 'TODAS') && !formData.usuario_acceso_id) {
+        return alert("DEBE VINCULAR UN USUARIO DE ACCESO PARA ESTE NIVEL DE PERMISO");
+    }
 
+    setCargando(true);
     const { id, ...datosSinId } = formData;
     const payload = {
+      ...datosSinId,
       nombre_empresa: datosSinId.nombre_empresa.toUpperCase().trim(),
-      contacto_nombre: datosSinId.contacto_nombre.toUpperCase().trim(),
-      email_notificacion: datosSinId.email_notificacion.toLowerCase().trim(),
-      emails_cc: datosSinId.emails_cc.toLowerCase().trim(), // Guardamos la lista de CC
-      telefono: datosSinId.telefono.trim(),
-      servicio_id: datosSinId.servicio_id 
+      usuario_acceso_id: datosSinId.tipo_acceso === 'SOLO EMAIL' ? null : datosSinId.usuario_acceso_id
     };
 
     try {
-      if (editando) {
-        const { error } = await supabase.from('clientes').update(payload).eq('id', id);
-        if (error) throw error;
-        alert('FICHA ACTUALIZADA CORRECTAMENTE');
-      } else {
-        const { error } = await supabase.from('clientes').insert([payload]);
-        if (error) throw error;
-        alert('CLIENTE VINCULADO AL SERVICIO SELECCIONADO');
-      }
-
+      const { error } = editando 
+        ? await supabase.from('clientes').update(payload).eq('id', id)
+        : await supabase.from('clientes').insert([payload]);
+      
+      if (error) throw error;
+      alert(editando ? 'REGISTRO ACTUALIZADO' : 'NUEVA ENTIDAD CONFIGURADA');
       cancelarEdicion();
       cargarDatos(busqueda);
     } catch (err: any) {
-      alert('ERROR DE BASE DE DATOS: ' + err.message);
+      alert('ERROR: ' + err.message);
     } finally {
       setCargando(false);
     }
@@ -85,159 +89,122 @@ export default function ClientesPage() {
       nombre_empresa: c.nombre_empresa,
       contacto_nombre: c.contacto_nombre,
       email_notificacion: c.email_notificacion,
-      emails_cc: c.emails_cc || '', // Cargamos CC si existe
+      emails_cc: c.emails_cc || '',
       telefono: c.telefono,
-      servicio_id: c.servicio_id || ''
+      servicio_id: c.servicio_id || '',
+      usuario_acceso_id: c.usuario_acceso_id || '',
+      tipo_acceso: c.tipo_acceso || 'SOLO EMAIL'
     }); 
     setEditando(true); 
   };
 
   const cancelarEdicion = () => { 
-    setFormData({ id: '', nombre_empresa: '', contacto_nombre: '', email_notificacion: '', emails_cc: '', telefono: '', servicio_id: '' }); 
+    setFormData({ id: '', nombre_empresa: '', contacto_nombre: '', email_notificacion: '', emails_cc: '', telefono: '', servicio_id: '', usuario_acceso_id: '', tipo_acceso: 'SOLO EMAIL' }); 
     setEditando(false); 
   };
 
-  const borrarCliente = async (id: string) => {
-    if (confirm('¿ELIMINAR ESTE REGISTRO DE CLIENTE/SERVICIO?')) {
-      await supabase.from('clientes').delete().eq('id', id);
-      cargarDatos(busqueda);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-[#f8f9fa] font-sans text-gray-800 text-[13px]">
+    <div className="min-h-screen bg-[#f8f9fa] font-sans text-[13px]">
       <Navbar />
 
       <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-6">
-        
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-8 shadow-sm border-l-8 border-black gap-4">
+        <div className="flex flex-col md:flex-row justify-between items-center bg-white p-8 shadow-sm border-l-8 border-black">
           <div>
-            <h2 className="text-[10px] font-black text-[#f29100] uppercase tracking-[0.4em] mb-2 italic">Control de Entidades</h2>
-            <h1 className="text-3xl font-black italic uppercase tracking-tighter leading-none">Gestión de Clientes CLA</h1>
+            <h2 className="text-[10px] font-black text-[#f29100] uppercase tracking-[0.4em] mb-2 italic">Configuración de Niveles</h2>
+            <h1 className="text-3xl font-black italic uppercase tracking-tighter">Gestión de Clientes CLA</h1>
           </div>
-          <Link href="/dashboard/admin" className="bg-black text-white px-6 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-[#f29100] transition-all italic shadow-lg">
-            ← Volver al Panel
-          </Link>
+          <Link href="/dashboard/admin" className="bg-black text-white px-6 py-2 text-[10px] font-black uppercase italic shadow-md">← Volver al Panel</Link>
         </div>
 
         <div className="bg-white p-8 shadow-xl border-t-4 border-black">
-          <h2 className="text-xs font-black uppercase mb-8 tracking-[0.2em] border-b pb-4 text-gray-400 italic">
-            {editando ? 'Modificar Registro de Empresa' : 'Registro de Nueva Razón Social'}
-          </h2>
-          
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="space-y-6">
               <Input label="Nombre Empresa" name="nombre_empresa" value={formData.nombre_empresa} onChange={handleChange} required />
+              
               <div className="flex flex-col">
-                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-widest">Servicio Asociado</label>
+                <label className="text-[10px] font-black text-[#f29100] uppercase mb-1 italic tracking-widest">Nivel de Acceso (CONFIGURACIÓN)</label>
                 <select 
-                  name="servicio_id" 
-                  value={formData.servicio_id} 
+                  name="tipo_acceso" 
+                  value={formData.tipo_acceso} 
                   onChange={handleChange} 
-                  className="bg-gray-100 p-3 text-sm font-bold border-b-2 border-transparent focus:border-[#f29100] h-[46px] outline-none uppercase cursor-pointer text-gray-800"
-                  required
+                  className="bg-zinc-900 text-white p-3 text-xs font-black border-b-2 border-[#f29100] outline-none uppercase cursor-pointer"
                 >
-                  <option value="">Seleccionar Servicio...</option>
+                  <option value="SOLO EMAIL">SIN ACCESO AL PANEL (SOLO EMAIL)</option>
+                  <option value="ACCESO A PANEL">SOLO ACCESO AL PANEL</option>
+                  <option value="TODAS">TODAS (EMAIL + PANEL)</option>
+                </select>
+              </div>
+
+              {formData.tipo_acceso !== 'SOLO EMAIL' && (
+                <div className="flex flex-col animate-in fade-in duration-500">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1">Vincular Login del Cliente</label>
+                    <select name="usuario_acceso_id" value={formData.usuario_acceso_id} onChange={handleChange} className="bg-zinc-100 p-3 text-xs font-black border-b-2 border-black outline-none uppercase" required>
+                        <option value="">Seleccionar Usuario...</option>
+                        {usuariosCliente.map(u => <option key={u.id} value={u.id}>{u.nombre}</option>)}
+                    </select>
+                </div>
+              )}
+
+              <div className="flex flex-col">
+                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-widest leading-none">Servicio Principal</label>
+                <select name="servicio_id" value={formData.servicio_id} onChange={handleChange} className="bg-gray-100 p-3 text-sm font-bold border-b-2 border-transparent focus:border-[#f29100] outline-none h-[46px]" required>
+                  <option value="">Seleccionar...</option>
                   {servicios.map(s => <option key={s.id} value={s.id}>{s.nombre_servicio}</option>)}
                 </select>
               </div>
-              <Input label="Teléfono" name="telefono" value={formData.telefono} onChange={handleChange} required />
             </div>
 
             <div className="space-y-6 md:col-span-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Input label="Persona de Contacto" name="contacto_nombre" value={formData.contacto_nombre} onChange={handleChange} required />
-                <Input label="Email Principal (PARA:)" name="email_notificacion" value={formData.email_notificacion} onChange={handleChange} required />
+                <Input label="Email Notificación" name="email_notificacion" value={formData.email_notificacion} onChange={handleChange} required />
               </div>
-              
-              <div className="flex flex-col mt-2">
-                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-widest">Emails en Copia (CC:) - Separar por comas</label>
-                <textarea 
-                  name="emails_cc"
-                  value={formData.emails_cc}
-                  onChange={handleChange}
-                  placeholder="ejemplo1@mail.com, ejemplo2@mail.com"
-                  className="bg-gray-100 p-3 text-xs font-mono border-b-2 border-transparent focus:border-[#f29100] outline-none h-[80px] resize-none"
-                />
-                <p className="text-[9px] text-gray-400 mt-1 italic font-bold">Añade aquí los emails secundarios que recibirán copia de los registros NOK.</p>
+              <div className="flex flex-col">
+                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1">Emails en Copia (CC:)</label>
+                <textarea name="emails_cc" value={formData.emails_cc} onChange={handleChange} className="bg-gray-100 p-3 text-xs font-mono h-[80px] outline-none border-b-2 border-zinc-200" placeholder="email1@mail.com, email2@mail.com" />
               </div>
-
-              <div className="flex flex-col gap-2 mt-4">
-                <Button type="submit" disabled={cargando}>
-                  {cargando ? 'CONECTANDO...' : editando ? 'ACTUALIZAR DATOS' : 'Guardar en Base de Datos'}
-                </Button>
-                {editando && (
-                  <button type="button" onClick={cancelarEdicion} className="text-[10px] font-black text-red-500 hover:underline uppercase">
-                    Cancelar Edición
-                  </button>
-                )}
-              </div>
+              <Button type="submit" disabled={cargando}>{editando ? 'ACTUALIZAR CONFIGURACIÓN' : 'CREAR CLIENTE'}</Button>
+              {editando && <button onClick={cancelarEdicion} className="w-full text-[10px] font-black text-red-500 uppercase mt-2">Descartar Cambios</button>}
             </div>
           </form>
         </div>
 
-        {/* BUSCADOR */}
-        <div className="bg-white p-4 shadow-lg border-l-4 border-[#f29100] flex items-center gap-4">
-          <div className="bg-gray-100 p-2 rounded text-xs">🔍</div>
-          <input 
-            type="text" 
-            placeholder="FILTRAR POR EMPRESA, CONTACTO O EMAIL..." 
-            className="w-full bg-transparent outline-none text-xs font-black uppercase tracking-widest placeholder:text-gray-300"
-            value={busqueda} 
-            onChange={(e) => setBusqueda(e.target.value)} 
-          />
-        </div>
-
-        {/* TABLA DE RESULTADOS */}
         <div className="bg-white shadow-xl border-t-4 border-[#f29100]">
-          <div className="p-6 bg-gray-50 border-b flex justify-between items-center text-xs font-black uppercase tracking-[0.2em] text-gray-500 italic">
-            Empresas por Servicio en Sistema
-            <span className="text-[10px] text-[#f29100]">Total: {clientes.length}</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-[10px] text-gray-400 uppercase border-b bg-white font-black">
-                  <th className="p-5">Empresa / Servicio</th>
-                  <th className="p-5">Responsable / PARA:</th>
-                  <th className="p-5">Emails en CC:</th>
-                  <th className="p-5 text-center">Gestión</th>
+          <table className="w-full text-left">
+            <thead>
+              <tr className="text-[10px] text-gray-400 uppercase border-b font-black italic bg-zinc-50">
+                <th className="p-5">Empresa / Servicio</th>
+                <th className="p-5">Nivel de Acceso</th>
+                <th className="p-5">Contacto / PARA:</th>
+                <th className="p-5 text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clientes.map((c) => (
+                <tr key={c.id} className="border-b hover:bg-zinc-50 transition-colors">
+                  <td className="p-5">
+                    <p className="font-black uppercase italic text-gray-900 leading-tight">{c.nombre_empresa}</p>
+                    <p className="text-[9px] text-[#f29100] font-black uppercase mt-1 tracking-tighter">{c.servicios?.nombre_servicio}</p>
+                  </td>
+                  <td className="p-5">
+                    <span className={`px-2 py-1 text-[9px] font-black uppercase rounded border ${
+                      c.tipo_acceso === 'TODAS' ? 'bg-black text-[#f29100] border-black' : 
+                      c.tipo_acceso === 'ACCESO A PANEL' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-zinc-100 text-zinc-400 border-zinc-200'
+                    }`}>
+                      {c.tipo_acceso}
+                    </span>
+                  </td>
+                  <td className="p-5">
+                    <p className="text-black font-bold uppercase leading-none mb-1">{c.contacto_nombre}</p>
+                    <p className="text-[9px] font-mono text-blue-600">{c.email_notificacion}</p>
+                  </td>
+                  <td className="p-5 text-center">
+                    <button onClick={() => seleccionarParaEditar(c)} className="text-[10px] font-black text-gray-400 hover:text-black uppercase italic">Editar</button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {clientes.length > 0 ? (
-                  clientes.map((c) => (
-                    <tr key={c.id} className="border-b hover:bg-gray-50 transition-colors group">
-                      <td className="p-5">
-                        <p className="font-black italic uppercase text-gray-900 group-hover:text-[#f29100] transition-colors leading-tight">{c.nombre_empresa}</p>
-                        <p className="text-[9px] text-[#f29100] font-black uppercase tracking-tighter italic leading-none mt-1">
-                          Área: {c.servicios?.nombre_servicio || 'SIN ASIGNAR'}
-                        </p>
-                        <p className="text-[10px] text-gray-400 mt-1 font-bold">{c.telefono}</p>
-                      </td>
-                      <td className="p-5 uppercase font-bold text-gray-600">
-                        <p className="text-black">{c.contacto_nombre}</p>
-                        <p className="text-[10px] font-mono lowercase text-blue-600 underline">{c.email_notificacion}</p>
-                      </td>
-                      <td className="p-5">
-                        <p className="text-[9px] font-mono text-gray-500 break-words max-w-[200px]">
-                          {c.emails_cc || <span className="text-gray-300 italic">SIN COPIAS</span>}
-                        </p>
-                      </td>
-                      <td className="p-5 text-center">
-                        <div className="flex justify-center gap-6">
-                          <button onClick={() => seleccionarParaEditar(c)} className="text-[10px] font-black text-gray-300 hover:text-black uppercase italic transition-colors">Editar</button>
-                          <button onClick={() => borrarCliente(c.id)} className="text-[10px] font-black text-gray-400 hover:text-red-600 uppercase italic transition-colors">Borrar</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr><td colSpan={4} className="p-10 text-center text-gray-300 italic font-black uppercase text-xs">Sin registros</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

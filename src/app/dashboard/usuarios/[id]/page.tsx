@@ -43,8 +43,15 @@ export default function PerfilUsuarioPage() {
     fetchData(); 
   }, [fetchData]);
 
-  // Determinar si el usuario actual tiene poder total
-  const esAdminTotal = me?.rol === 'Administrador' || me?.email === SUPERADMIN_EMAIL;
+  // --- LÓGICA DE PERMISOS REESTRUCTURADA ---
+  const esMaestroAdmin = me?.rol === 'Administrador' || me?.rol === 'Maestro' || me?.email === SUPERADMIN_EMAIL;
+  const esSupervisor = me?.rol === 'Supervisor';
+  
+  // El Supervisor PUEDE asignar centros y módulos (can_create)
+  const puedeAsignarCentros = esMaestroAdmin || esSupervisor;
+  
+  // El Supervisor NO PUEDE tocar el Rol ni la casilla de Supervisor de Centro
+  const puedeAsignarRangoSuperior = esMaestroAdmin;
 
   const handleUserUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +79,7 @@ export default function PerfilUsuarioPage() {
   };
 
   const toggleModulo = async (servicioId: string) => {
-    if (!esAdminTotal) return; // Bloqueo de seguridad
+    if (!puedeAsignarCentros) return; 
     
     const asignacionActual = asignaciones.find(a => a.servicio_id === servicioId);
     try {
@@ -85,7 +92,7 @@ export default function PerfilUsuarioPage() {
           usuario_id: id, 
           servicio_id: servicioId,
           can_create: true, 
-          is_supervisor: false 
+          is_supervisor: false // Siempre nace como false por defecto
         }]).select().single();
         
         if (error) throw error;
@@ -98,7 +105,11 @@ export default function PerfilUsuarioPage() {
   };
 
   const updatePermiso = async (asignacionId: string, campo: string, valor: boolean) => {
-    if (!esAdminTotal) return; // Bloqueo de seguridad
+    // Si el campo es 'is_supervisor', bloqueamos a los Supervisores
+    if (campo === 'is_supervisor' && !puedeAsignarRangoSuperior) return;
+    // Si el campo es 'can_create', el Supervisor sí puede
+    if (campo === 'can_create' && !puedeAsignarCentros) return;
+
     try {
       setAsignaciones(prev => prev.map(a => a.id === asignacionId ? { ...a, [campo]: valor } : a));
       const { error } = await supabase.from('usuario_servicios').update({ [campo]: valor }).eq('id', asignacionId);
@@ -138,18 +149,18 @@ export default function PerfilUsuarioPage() {
             <div className="space-y-6 flex flex-col justify-between">
               <div className="flex flex-col">
                 <label className="text-[9px] font-black text-gray-400 uppercase mb-1 tracking-widest italic">Rol de Sistema</label>
-                {/* SELECT PROTEGIDO PARA SUPERVISORES */}
                 <select 
                   value={usuario?.rol} 
-                  disabled={!esAdminTotal}
+                  disabled={!puedeAsignarRangoSuperior}
                   onChange={(e) => setUsuario({...usuario, rol: e.target.value})}
-                  className={`bg-gray-100 p-3 text-[11px] font-bold border-b-2 border-transparent focus:border-[#f29100] outline-none uppercase appearance-none h-[46px] ${!esAdminTotal ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                  className={`bg-gray-100 p-3 text-[11px] font-bold border-b-2 border-transparent focus:border-[#f29100] outline-none uppercase appearance-none h-[46px] ${!puedeAsignarRangoSuperior ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                 >
                   <option value="Operario">Operario</option>
                   <option value="Supervisor">Supervisor</option>
                   <option value="Administrador">Administrador</option>
+                  <option value="Maestro">Maestro</option>
                 </select>
-                {!esAdminTotal && <p className="text-[7px] font-black text-red-500 uppercase mt-1 italic tracking-widest">Solo lectura de Rol</p>}
+                {!puedeAsignarRangoSuperior && <p className="text-[7px] font-black text-red-500 uppercase mt-1 italic tracking-widest">Solo lectura de Rol</p>}
               </div>
               <Button type="submit" disabled={guardandoUser} className="w-full">
                 {guardandoUser ? 'Guardando...' : 'Actualizar Datos'}
@@ -161,12 +172,12 @@ export default function PerfilUsuarioPage() {
         <div className="space-y-4">
           <div className="bg-black text-white p-2 flex justify-between items-center px-6 font-black uppercase italic text-[10px]">
             <span>Módulos y Permisos por Centro de Trabajo</span>
-            {/* TOGGLE PROTEGIDO */}
-            <label className={`relative inline-flex items-center scale-75 ${!esAdminTotal ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+            {/* El Supervisor SÍ puede activar el acceso a centros global */}
+            <label className={`relative inline-flex items-center scale-75 ${!puedeAsignarCentros ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
               <input 
                 type="checkbox" 
                 className="sr-only peer" 
-                disabled={!esAdminTotal}
+                disabled={!puedeAsignarCentros}
                 checked={usuario?.tiene_acceso_centros || false} 
                 onChange={(e) => setUsuario({...usuario, tiene_acceso_centros: e.target.checked})} 
               />
@@ -183,8 +194,9 @@ export default function PerfilUsuarioPage() {
                     <div className="flex flex-col h-full">
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="text-[10px] font-black uppercase italic text-gray-900 leading-tight w-2/3 truncate">{s.nombre_servicio}</h3>
-                        {/* BOTÓN ASIGNAR PROTEGIDO */}
-                        {esAdminTotal && (
+                        
+                        {/* El Supervisor SÍ puede asignar centros */}
+                        {puedeAsignarCentros && (
                           <button onClick={() => toggleModulo(s.id)} className={`text-[8px] font-black uppercase px-3 py-1 border-2 transition-all ${asignacion ? 'bg-white text-red-600 border-red-100 shadow-sm' : 'bg-black text-white border-black'}`}>
                             {asignacion ? 'Quitar' : 'Asignar'}
                           </button>
@@ -194,22 +206,25 @@ export default function PerfilUsuarioPage() {
                       <div className="mt-auto h-16 flex flex-col justify-end">
                         {asignacion && (
                           <div className="space-y-1 animate-in fade-in duration-300">
-                            <label className={`flex items-center justify-between text-[8px] font-bold text-gray-400 uppercase ${!esAdminTotal ? 'cursor-default' : 'cursor-pointer'}`}>
+                            {/* El Supervisor SÍ puede asignar el módulo Registrar NOK */}
+                            <label className={`flex items-center justify-between text-[8px] font-bold text-gray-400 uppercase ${!puedeAsignarCentros ? 'cursor-default' : 'cursor-pointer'}`}>
                               <span>Registrar NOK</span>
                               <input 
                                 type="checkbox" 
                                 className="w-3 h-3 accent-black" 
-                                disabled={!esAdminTotal}
+                                disabled={!puedeAsignarCentros}
                                 checked={asignacion.can_create} 
                                 onChange={(e) => updatePermiso(asignacion.id, 'can_create', e.target.checked)} 
                               />
                             </label>
-                            <label className={`flex items-center justify-between bg-blue-50 p-1 px-2 rounded-sm border border-blue-100 ${!esAdminTotal ? 'cursor-default' : 'cursor-pointer'}`}>
-                              <span className="text-[8px] font-black text-blue-700 uppercase italic">Supervisor de Centro</span>
+
+                            {/* El Supervisor NO PUEDE asignar Supervisor de Centro */}
+                            <label className={`flex items-center justify-between bg-blue-50 p-1 px-2 rounded-sm border border-blue-100 ${!puedeAsignarRangoSuperior ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                              <span className={`text-[8px] font-black uppercase italic ${!puedeAsignarRangoSuperior ? 'text-gray-400' : 'text-blue-700'}`}>Supervisor de Centro</span>
                               <input 
                                 type="checkbox" 
                                 className="w-3 h-3 accent-blue-600" 
-                                disabled={!esAdminTotal}
+                                disabled={!puedeAsignarRangoSuperior}
                                 checked={asignacion.is_supervisor || false} 
                                 onChange={(e) => updatePermiso(asignacion.id, 'is_supervisor', e.target.checked)} 
                               />
